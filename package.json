@@ -1,5 +1,5 @@
 {
-  "name": "senri_ffi",
+  "name": "@tt23xrstudio/senri_ffi",
   "version": "1.0.0",
   "description": "Unified FFI library for [KossJS Runtime](github.com/KossJS), Node.js Runtime, and Bun Runtime",
   "main": "./dist/index.js",
