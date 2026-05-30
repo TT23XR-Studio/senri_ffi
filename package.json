@@ -22,7 +22,7 @@
     "src/"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc"
   },
   "keywords": [
     "ffi",
