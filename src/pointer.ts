@@ -16,6 +16,17 @@
 
 import { FFIError } from './errors';
 
+export const PTR_BRAND = Symbol('senri_ptr');
+
+export interface PointerData {
+  __ptr: bigint;
+  __buf?: any;
+  __size: number;
+  __u8?: any | null;
+  [PTR_BRAND]?: true;
+  __cb?: any | null;
+}
+
 const READERS: Record<string, (b: DataView, o: number) => any> = {
   int8:    (b, o) => b.getInt8(o),
   uint8:   (b, o) => b.getUint8(o),
@@ -50,22 +61,30 @@ function getDataView(ptr: any): DataView | null {
   return null;
 }
 
-export function makePointer(underlying: any, size?: number): any {
-  if (underlying && typeof underlying === 'object' && underlying.__ptr !== undefined)
-    return underlying;
+function isPointerLike(obj: any): boolean {
+  return obj !== null && typeof obj === 'object' && (obj[PTR_BRAND] === true || typeof obj.__ptr !== 'undefined');
+}
+
+export function makePointer(underlying: any, size?: number): PointerData {
+  if (isPointerLike(underlying)) {
+    return { __ptr: BigInt(underlying.__ptr), __buf: underlying.__buf, __size: underlying.__size };
+  }
   if (underlying instanceof ArrayBuffer || ArrayBuffer.isView(underlying)) {
     const buf = ArrayBuffer.isView(underlying) ? underlying.buffer : underlying;
-    return { __ptr: 0, __buf: buf, __size: buf.byteLength };
+    return { __ptr: 0n, __buf: buf, __size: buf.byteLength, [PTR_BRAND]: true };
   }
-  const addr = typeof underlying === 'bigint' ? Number(underlying) : underlying;
-  return { __ptr: addr || 0, __size: size || 0 };
+  if (typeof underlying === 'bigint') {
+    return { __ptr: underlying, __size: size || 0, [PTR_BRAND]: true };
+  }
+  const addr = typeof underlying === 'number' ? BigInt(underlying) : BigInt(0);
+  return { __ptr: addr, __size: size || 0, [PTR_BRAND]: true };
 }
 
 export class Pointer {
-  _data: any;
+  _data: PointerData;
 
   constructor(underlying?: any) {
-    if (underlying && underlying.__ptr !== undefined) {
+    if (isPointerLike(underlying)) {
       this._data = underlying;
     } else {
       this._data = makePointer(underlying);
@@ -107,12 +126,17 @@ export class Pointer {
 
   readPointer(offset: number = 0): Pointer {
     const addr = this._read('uint64', offset);
-    return new Pointer({ __ptr: Number(addr), __size: 0 });
+    return new Pointer({ __ptr: addr, __size: 0 });
   }
 
-  writePointer(offset: number, ptr: Pointer | number): void {
-    const addr = ptr instanceof Pointer ? ptr._data.__ptr : Number(ptr);
-    this._write('uint64', offset, BigInt(addr));
+  writePointer(offset: number, ptr: Pointer | bigint | number): void {
+    let addr: bigint;
+    if (ptr instanceof Pointer) {
+      addr = ptr._data.__ptr;
+    } else {
+      addr = typeof ptr === 'bigint' ? ptr : BigInt(ptr);
+    }
+    this._write('uint64', offset, addr);
   }
 
   readCString(offset: number = 0): string {
@@ -136,15 +160,31 @@ export class Pointer {
   }
 
   add(offset: number): Pointer {
-    const newAddr = (this._data.__ptr || 0) + offset;
-    return new Pointer({ __ptr: newAddr, __size: Math.max(0, (this._data.__size || 0) - offset) });
+    const newAddr = (this._data.__ptr || 0n) + BigInt(offset);
+    let newBuf = this._data.__buf;
+    if (newBuf && typeof newBuf.subarray === 'function') {
+      newBuf = newBuf.subarray(offset);
+    }
+    return new Pointer({ __ptr: newAddr, __buf: newBuf, __size: Math.max(0, (this._data.__size || 0) - offset) });
   }
 
   toBigInt(): bigint {
-    return BigInt(this._data.__ptr || 0);
+    return BigInt(this._data.__ptr || 0n);
   }
 
-  get address(): number {
-    return this._data.__ptr || 0;
+  get address(): bigint {
+    return BigInt(this._data.__ptr || 0n);
+  }
+
+  get numberAddress(): number {
+    const addr = this.address;
+    if (addr > BigInt(Number.MAX_SAFE_INTEGER) || addr < BigInt(Number.MIN_SAFE_INTEGER)) {
+      throw new RangeError('Pointer address exceeds Number safe integer range. Use .address (bigint) instead.');
+    }
+    return Number(addr);
+  }
+
+  isNull(): boolean {
+    return this.address === 0n;
   }
 }

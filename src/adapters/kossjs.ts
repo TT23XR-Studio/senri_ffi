@@ -16,10 +16,12 @@
 
 import { KOSSJS_MAP } from '../types/mapping';
 import { FFIError } from '../errors';
+import { FFIAdapter } from '../types/adapter';
+import { NormalizedType } from '../types/normalized';
 
 declare var globalThis: any;
 
-export class KossJSAdapter {
+export class KossJSAdapter implements FFIAdapter {
   private _ffi: any;
   private _libs: Map<any, any>;
 
@@ -30,16 +32,48 @@ export class KossJSAdapter {
     this._libs = new Map();
   }
 
-  mapType(unifiedType: any): any {
-    if (typeof unifiedType === 'string') {
-      const mapped = KOSSJS_MAP[unifiedType];
-      if (!mapped) throw new FFIError('Unknown type: ' + unifiedType);
-      return mapped;
-    }
-    return unifiedType;
+  mapType(type: NormalizedType): any {
+    return this._mapTypeRec(type);
   }
 
-  createLibrary(path: string): any {
+  private _mapTypeRec(type: NormalizedType): any {
+    switch (type.kind) {
+      case 'primitive': {
+        const mapped = KOSSJS_MAP[type.name];
+        if (!mapped) throw new FFIError('Unknown type: ' + type.name);
+        return mapped;
+      }
+      case 'pointer':
+        return this.createPointerType(type.of);
+      case 'array':
+        return this.createArrayType(type.of, type.length);
+      case 'struct': {
+        const fields: Record<string, any> = {};
+        for (const [name, ft] of Object.entries(type.fields)) {
+          fields[name] = this._mapTypeRec(ft);
+        }
+        return this.createStructType(fields, type.packed, type.size, type.align);
+      }
+    }
+  }
+
+  createPointerType(ofType: NormalizedType): any {
+    return this._ffi.pointer(this._mapTypeRec(ofType));
+  }
+
+  createArrayType(ofType: NormalizedType, length: number): any {
+    return this._ffi.array(this._mapTypeRec(ofType), length);
+  }
+
+  createStructType(fields: Record<string, NormalizedType>, packed?: number, size?: number, align?: number): any {
+    const nativeFields: Record<string, any> = {};
+    for (const [name, nt] of Object.entries(fields)) {
+      nativeFields[name] = this._mapTypeRec(nt);
+    }
+    return this._ffi.struct(nativeFields, { packed });
+  }
+
+  loadLibrary(path: string): any {
     const lib = this._ffi.open(path);
     this._libs.set(lib, lib);
     return lib;
@@ -52,43 +86,34 @@ export class KossJSAdapter {
     }
   }
 
-  bindFunction(libHandle: any, name: string, retType: any, argTypes: any[], _options?: any): any {
+  bindFunction(libHandle: any, name: string, retType: NormalizedType, argTypes: NormalizedType[], _options?: any): any {
     if (!libHandle || typeof libHandle.func !== 'function') {
       throw new FFIError('Invalid library handle');
     }
-    return libHandle.func(name, retType, argTypes);
+    const nativeRet = this.mapType(retType);
+    const nativeArgs = argTypes.map(t => this.mapType(t));
+    return libHandle.func(name, nativeRet, nativeArgs);
   }
 
-  createStructType(fields: Record<string, any>, packed?: number, _size?: number, _align?: number): any {
-    const fieldTypes = Object.values(fields);
-    return this._ffi.struct(fieldTypes, { packed });
-  }
-
-  createPointerType(innerType: any): any {
-    return this._ffi.pointer(innerType);
-  }
-
-  createArrayType(innerType: any, length: number): any {
-    return this._ffi.array(innerType, length);
-  }
-
-  allocMemory(size: number): any {
+  alloc(size: number): any {
     return this._ffi.alloc(size);
   }
 
-  freeMemory(ptr: any): void {
+  free(ptr: any): void {
     this._ffi.free(ptr);
   }
 
-  getAddressOf(buffer: any): any {
-    return this._ffi.addressOf(buffer);
+  addressOf(buffer: ArrayBuffer | ArrayBufferView): bigint {
+    return BigInt(this._ffi.addressOf(buffer));
   }
 
-  createCallback(retType: any, argTypes: any[], jsFn: Function, _options?: any): any {
-    return this._ffi.createCallback(retType, argTypes, jsFn);
+  registerCallback(func: Function, retType: NormalizedType, argTypes: NormalizedType[]): any {
+    const nativeRet = this.mapType(retType);
+    const nativeArgs = argTypes.map(t => this.mapType(t));
+    return this._ffi.createCallback(nativeRet, nativeArgs, func);
   }
 
-  releaseCallback(ptr: any): void {
+  unregisterCallback(ptr: any): void {
     if (this._ffi.free) this._ffi.free(ptr);
   }
 

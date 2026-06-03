@@ -56,24 +56,23 @@ export function getKoffi(): any {
   return _koffi;
 }
 
-let _koffiMap: Record<string, any> | null = null;
-export function getKoffiMap(): Record<string, any> {
+let _koffiMap: Record<string, string> | null = null;
+export function getKoffiMap(): Record<string, string> {
   if (!_koffiMap) {
-    const koffi = getKoffi();
     _koffiMap = {
-      [TYPES.void]:    koffi.void,
-      [TYPES.int8]:    koffi.int8,
-      [TYPES.uint8]:   koffi.uint8,
-      [TYPES.int16]:   koffi.int16,
-      [TYPES.uint16]:  koffi.uint16,
-      [TYPES.int32]:   koffi.int32,
-      [TYPES.uint32]:  koffi.uint32,
-      [TYPES.int64]:   koffi.int64,
-      [TYPES.uint64]:  koffi.uint64,
-      [TYPES.float32]: koffi.float,
-      [TYPES.float64]: koffi.double,
-      [TYPES.pointer]: koffi.pointer,
-      [TYPES.cstring]: koffi.string,
+      [TYPES.void]:    'void',
+      [TYPES.int8]:    'int8',
+      [TYPES.uint8]:   'uint8',
+      [TYPES.int16]:   'int16',
+      [TYPES.uint16]:  'uint16',
+      [TYPES.int32]:   'int32',
+      [TYPES.uint32]:  'uint32',
+      [TYPES.int64]:   'int64',
+      [TYPES.uint64]:  'uint64',
+      [TYPES.float32]: 'float32',
+      [TYPES.float64]: 'float64',
+      [TYPES.pointer]: 'void *',
+      [TYPES.cstring]: 'string',
     };
   }
   return _koffiMap;

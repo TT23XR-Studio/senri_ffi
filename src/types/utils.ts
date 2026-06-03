@@ -85,34 +85,3 @@ export function computeLayout(
   const totalSize = packed ? offset : Math.ceil(offset / maxAlign) * maxAlign;
   return { fieldInfos, totalSize, maxAlign };
 }
-
-const typeCache = new WeakMap<object, any>();
-
-export function normalizeType(type: any, adapter: any): any {
-  if (isPrimitiveType(type)) {
-    return adapter.mapType(type);
-  }
-
-  let internal = typeCache.get(type);
-  if (internal) return internal;
-
-  if (isStructType(type)) {
-    const fields = type.fields;
-    const normalizedFields: Record<string, any> = {};
-    for (const [name, ft] of Object.entries(fields)) {
-      normalizedFields[name] = normalizeType(ft, adapter);
-    }
-    internal = adapter.createStructType(normalizedFields, type.packed, type.size, type.align);
-  } else if (isPointerType(type)) {
-    const inner = normalizeType(type.innerType, adapter);
-    internal = adapter.createPointerType(inner);
-  } else if (isArrayType(type)) {
-    const inner = normalizeType(type.innerType, adapter);
-    internal = adapter.createArrayType(inner, type.length);
-  } else {
-    throw new Error('Unknown type descriptor: ' + JSON.stringify(type));
-  }
-
-  typeCache.set(type, internal);
-  return internal;
-}

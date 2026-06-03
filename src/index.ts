@@ -20,33 +20,42 @@ export { struct } from './struct';
 export { callback } from './callback';
 export { alloc, free, addressOf, errno, strerror } from './memory';
 export { Library } from './library';
+export type { FFIAdapter } from './types/adapter';
+export type { NormalizedType, PrimitiveName } from './types/normalized';
 
 import { TYPES } from './types/constants';
+import { FFIAdapter } from './types/adapter';
 import { KossJSAdapter } from './adapters/kossjs';
 import { NodeAdapter } from './adapters/node';
 import { BunAdapter } from './adapters/bun';
+import { DenoAdapter } from './adapters/deno';
 
 import { setCallbackAdapter } from './callback';
 import { setMemoryAdapter } from './memory';
 import { setLibraryAdapter } from './library';
+import { setStructAlloc } from './struct';
 
 declare var globalThis: any;
 declare var Bun: any;
 declare var process: any;
+declare var Deno: any;
 
-let _adapter: any = null;
+let _adapter: FFIAdapter | null = null;
 
-function detectRuntime(): any {
+function detectRuntime(): FFIAdapter {
   if (typeof globalThis._senri_ffi !== 'undefined' && globalThis._senri_ffi) {
     return new KossJSAdapter();
   }
-  if (typeof Bun !== 'undefined' && Bun.ffi) {
+  if (typeof Bun !== 'undefined' && Bun.FFI) {
     return new BunAdapter();
+  }
+  if (typeof Deno !== 'undefined' && Deno.dlopen) {
+    return new DenoAdapter();
   }
   if (typeof process !== 'undefined' && process.versions && process.versions.node) {
     return new NodeAdapter();
   }
-  throw new Error('Unsupported JavaScript runtime: expected KossJS, Bun (>=1.0), or Node.js (>=18)');
+  throw new Error('Unsupported JavaScript runtime: expected KossJS, Bun (>=1.0), Deno, or Node.js (>=18)');
 }
 
 if (!_adapter) {
@@ -54,13 +63,28 @@ if (!_adapter) {
   setCallbackAdapter(_adapter);
   setLibraryAdapter(_adapter);
   setMemoryAdapter(_adapter);
+  setStructAlloc(
+    (size: number) => _adapter!.alloc(size),
+    (ptr: any) => _adapter!.free(ptr),
+  );
 }
 
-export function pointer(type?: any): any {
-  return { __senri_type: 'pointer', innerType: type || TYPES.pointer };
+export interface PointerDescriptor {
+  __senri_type: 'pointer';
+  innerType: any;
 }
 
-export function array(type: any, length: number): any {
+export interface ArrayDescriptor {
+  __senri_type: 'array';
+  innerType: any;
+  length: number;
+}
+
+export function pointer(type?: any): PointerDescriptor {
+  return { __senri_type: 'pointer', innerType: type || TYPES.void };
+}
+
+export function array(type: any, length: number): ArrayDescriptor {
   return { __senri_type: 'array', innerType: type, length: length || 0 };
 }
 

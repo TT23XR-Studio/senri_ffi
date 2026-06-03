@@ -16,8 +16,10 @@
 
 import { getKoffi, getKoffiMap } from '../types/mapping';
 import { FFIError } from '../errors';
+import { FFIAdapter } from '../types/adapter';
+import { NormalizedType } from '../types/normalized';
 
-export class NodeAdapter {
+export class NodeAdapter implements FFIAdapter {
   private _koffi: any = null;
   private _typeMap: Record<string, any> | null = null;
 
@@ -31,81 +33,146 @@ export class NodeAdapter {
     return this._koffi;
   }
 
-  mapType(unifiedType: any): any {
-    if (typeof unifiedType === 'string') {
-      this.ensureKoffi();
-      const mapped = this._typeMap![unifiedType];
-      if (!mapped) throw new FFIError('Unknown type: ' + unifiedType);
-      return mapped;
-    }
-    return unifiedType;
+  mapType(type: NormalizedType): any {
+    return this._mapTypeRec(type);
   }
 
-  createLibrary(path: string): any {
+  private _mapTypeRec(type: NormalizedType): any {
+    this.ensureKoffi();
+    switch (type.kind) {
+      case 'primitive': {
+        const mapped = this._typeMap![type.name];
+        if (!mapped) throw new FFIError('Unknown type: ' + type.name);
+        return mapped;
+      }
+      case 'pointer':
+        return this.createPointerType(type.of);
+      case 'array':
+        return this.createArrayType(type.of, type.length);
+      case 'struct': {
+        const fields: Record<string, any> = {};
+        for (const [name, ft] of Object.entries(type.fields)) {
+          fields[name] = this._mapTypeRec(ft);
+        }
+        return this.createStructType(fields, type.packed, type.size, type.align);
+      }
+    }
+  }
+
+  createPointerType(ofType: NormalizedType): any {
+    this.ensureKoffi();
+    return this._koffi.pointer ? this._koffi.pointer(this._mapTypeRec(ofType)) : this._koffi.pointer;
+  }
+
+  createArrayType(ofType: NormalizedType, length: number): any {
+    this.ensureKoffi();
+    return this._koffi.array ? this._koffi.array(this._mapTypeRec(ofType), length) : this._mapTypeRec(ofType);
+  }
+
+  createStructType(fields: Record<string, NormalizedType>, _packed?: number, _size?: number, _align?: number): any {
+    this.ensureKoffi();
+    const nativeFields: Record<string, any> = {};
+    for (const [name, nt] of Object.entries(fields)) {
+      nativeFields[name] = this._mapTypeRec(nt);
+    }
+    if (this._koffi.struct) return this._koffi.struct(nativeFields);
+    return null;
+  }
+
+  loadLibrary(path: string): any {
     this.ensureKoffi();
     try { return this._koffi.load(path); }
     catch (e: any) { throw new FFIError('Failed to load library "' + path + '": ' + e.message); }
   }
 
-  closeLibrary(_handle: any): void {
-    // koffi manages library lifetime automatically
+  closeLibrary(handle: any): void {
+    if (handle) {
+      try { if (typeof handle.close === 'function') handle.close(); } catch {}
+    }
   }
 
-  bindFunction(libHandle: any, name: string, retType: any, argTypes: any[], _options?: any): any {
+  bindFunction(libHandle: any, name: string, retType: NormalizedType, argTypes: NormalizedType[], _options?: any): any {
     this.ensureKoffi();
-    try { return libHandle.func(name, retType, argTypes); }
+    const nativeRet = this.mapType(retType);
+    const nativeArgs = argTypes.map(t => this.mapType(t));
+    try { return libHandle.func(name, nativeRet, nativeArgs); }
     catch (e: any) { throw new FFIError('Failed to bind function "' + name + '": ' + e.message); }
   }
 
-  createStructType(fields: Record<string, any>, _packed?: number, _size?: number, _align?: number): any {
-    this.ensureKoffi();
-    if (this._koffi.struct) return this._koffi.struct(fields);
-    return null;
-  }
-
-  createPointerType(innerType: any): any {
-    this.ensureKoffi();
-    return this._koffi.pointer ? this._koffi.pointer(innerType) : this._koffi.pointer;
-  }
-
-  createArrayType(innerType: any, length: number): any {
-    this.ensureKoffi();
-    return this._koffi.array ? this._koffi.array(innerType, length) : innerType;
-  }
-
-  allocMemory(size: number): any {
+  alloc(size: number): any {
     this.ensureKoffi();
     const buf = Buffer.allocUnsafe(size);
     const addr = this._koffi.address ? this._koffi.address(buf) : buf;
-    return { __ptr: addr, __buf: buf, __size: size };
+    return { __ptr: BigInt(addr), __buf: buf, __size: size };
   }
 
-  freeMemory(ptr: any): void {
+  free(ptr: any): void {
     if (ptr && ptr.__buf) ptr.__buf = null;
   }
 
-  getAddressOf(buffer: any): any {
+  addressOf(buffer: ArrayBuffer | ArrayBufferView): bigint {
     this.ensureKoffi();
     const addr = this._koffi.address ? this._koffi.address(buffer) : buffer;
-    return { __ptr: addr, __buf: buffer, __size: buffer.byteLength || buffer.length };
+    return BigInt(addr);
   }
 
-  createCallback(retType: any, argTypes: any[], jsFn: Function, _options?: any): any {
+  registerCallback(func: Function, retType: NormalizedType, argTypes: NormalizedType[]): any {
     this.ensureKoffi();
+    const nativeRet = this.mapType(retType);
+    const nativeArgs = argTypes.map(t => this.mapType(t));
     try {
-      const cb = this._koffi.callback(retType, argTypes, jsFn);
-      const ptr = this.getAddressOf(cb);
-      ptr.__cb = cb;
-      return ptr;
+      const cb = this._koffi.callback(nativeRet, nativeArgs, func);
+      const ptr = this._koffi.address ? this._koffi.address(cb) : cb;
+      return { __ptr: BigInt(ptr), __cb: cb, __size: 0 };
     } catch (e: any) {
       throw new FFIError('Failed to create callback: ' + e.message);
     }
   }
 
-  releaseCallback(ptr: any): void {
+  unregisterCallback(ptr: any): void {
     if (ptr && ptr.__cb) ptr.__cb = null;
   }
 
-  getErrno(): number { return 0; }
-  getStrerror(errno: number): string { return 'Error code: ' + errno; }
+  private _errnoLib: any = null;
+
+  private ensureErrnoLib(): any {
+    if (this._errnoLib) return this._errnoLib;
+    this.ensureKoffi();
+    try {
+      const libName = process.platform === 'win32' ? 'msvcrt.dll'
+        : process.platform === 'darwin' ? 'libSystem.B.dylib'
+        : 'libc.so.6';
+      this._errnoLib = this._koffi.load(libName);
+    } catch {
+      return null;
+    }
+    return this._errnoLib;
+  }
+
+  getErrno(): number {
+    const lib = this.ensureErrnoLib();
+    if (!lib) return 0;
+    try {
+      const getErrnoPtr = lib.func(
+        process.platform === 'win32' ? '_errno' : '__errno_location',
+        'pointer', []
+      );
+      const ptr = getErrnoPtr();
+      const errnoVal = this._koffi.decode(ptr, 'int');
+      return errnoVal;
+    } catch {
+      return 0;
+    }
+  }
+
+  getStrerror(errno: number): string {
+    const lib = this.ensureErrnoLib();
+    if (!lib) return 'Error code: ' + errno;
+    try {
+      const strerror = lib.func('strerror', 'string', ['int']);
+      return strerror(errno);
+    } catch {
+      return 'Error code: ' + errno;
+    }
+  }
 }

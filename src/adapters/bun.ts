@@ -16,93 +16,149 @@
 
 import { BUN_MAP } from '../types/mapping';
 import { FFIError } from '../errors';
+import { FFIAdapter } from '../types/adapter';
+import { NormalizedType } from '../types/normalized';
 
 declare var Bun: any;
+declare var process: any;
 
-export class BunAdapter {
+export class BunAdapter implements FFIAdapter {
+  private static _warnedCString: boolean = false;
+  private _isWindows: boolean;
+
   constructor() {
-    if (typeof Bun === 'undefined' || !Bun.ffi) {
-      throw new FFIError('Bun.ffi not available');
+    if (typeof Bun === 'undefined' || !Bun.FFI) {
+      throw new FFIError('Bun.FFI not available');
+    }
+    this._isWindows = typeof process !== 'undefined' && process.platform === 'win32';
+  }
+
+  mapType(type: NormalizedType): any {
+    return this._mapTypeRec(type);
+  }
+
+  private _cstringType(): string {
+    return 'ptr';
+  }
+
+  private _mapTypeRec(type: NormalizedType): any {
+    switch (type.kind) {
+      case 'primitive': {
+        if (type.name === 'cstring') return this._cstringType();
+        const mapped = BUN_MAP[type.name];
+        if (!mapped) throw new FFIError('Unknown type: ' + type.name);
+        return mapped;
+      }
+      case 'pointer':
+        return 'ptr';
+      case 'array':
+        return this._mapTypeRec(type.of);
+      case 'struct':
+        return 'ptr';
     }
   }
 
-  mapType(unifiedType: any): any {
-    if (typeof unifiedType === 'string') {
-      const mapped = BUN_MAP[unifiedType];
-      if (!mapped) throw new FFIError('Unknown type: ' + unifiedType);
-      return mapped;
-    }
-    return unifiedType;
-  }
+  createPointerType(_ofType: NormalizedType): any { return 'ptr'; }
+  createArrayType(ofType: NormalizedType, _length: number): any { return this._mapTypeRec(ofType); }
+  createStructType(_fields: Record<string, NormalizedType>, _packed?: number, _size?: number, _align?: number): any { return 'ptr'; }
 
-  createLibrary(path: string): any {
+  loadLibrary(path: string): any {
     try {
-      const lib = Bun.ffi.dlopen(path, {});
-      return { __path: path, __lib: lib, __symbols: {} as Record<string, any> };
+      const lib = Bun.FFI.dlopen(path, {});
+      return { __path: path, __lib: lib };
     } catch (e: any) {
       throw new FFIError('Failed to load library "' + path + '": ' + e.message);
     }
   }
 
   closeLibrary(handle: any): void {
-    if (handle) { handle.__lib = null; handle.__symbols = null; }
+    if (!handle) return;
+    try { handle.__lib?.close?.(); } catch {}
+    handle.__lib = null;
   }
 
-  bindFunction(libHandle: any, name: string, retType: any, argTypes: any[], _options?: any): any {
+  bindFunction(libHandle: any, name: string, retType: NormalizedType, argTypes: NormalizedType[], _options?: any): any {
     if (!libHandle || !libHandle.__lib) throw new FFIError('Invalid or closed library handle');
 
-    const key = name + '_' + JSON.stringify({ retType, argTypes });
-    if (libHandle.__symbols[key]) return libHandle.__symbols[key];
+    const nativeRet = this._mapTypeRec(retType);
+    const nativeArgs = argTypes.map(t => this._mapTypeRec(t));
 
-    const dl = Bun.ffi.dlopen(libHandle.__path, {
-      [name]: { returns: retType, args: argTypes },
+    const dl = Bun.FFI.dlopen(libHandle.__path, {
+      [name]: { returns: nativeRet, args: nativeArgs },
     });
     const fn = dl.symbols ? dl.symbols[name] : dl[name];
     if (!fn) throw new FFIError('Symbol not found: ' + name);
 
-    libHandle.__symbols[key] = fn;
+    const hasCStringArg = argTypes.some(t => t.kind === 'primitive' && t.name === 'cstring');
+    const returnsCString = retType.kind === 'primitive' && retType.name === 'cstring';
+    if (hasCStringArg || returnsCString) {
+      const warnOnce = () => {
+        if (!BunAdapter._warnedCString) {
+          BunAdapter._warnedCString = true;
+          console.warn('[SenRi FFI] Bun: cstring type mapped to ptr to avoid crashes. For string returns, raw pointer address is returned as bigint.');
+        }
+      };
+      return (...args: any[]) => {
+        warnOnce();
+        const converted = args.map((arg: any, i: number) => {
+          const t = argTypes[i];
+          if (t.kind === 'primitive' && t.name === 'cstring') {
+            return new TextEncoder().encode(String(arg) + '\0');
+          }
+          return arg;
+        });
+        const raw = fn(...converted);
+        if (returnsCString && raw) {
+          return raw;
+        }
+        return raw;
+      };
+    }
+
     return fn;
   }
 
-  createStructType(_fields: Record<string, any>, _packed?: number, _size?: number, _align?: number): any {
-    return null;
-  }
-
-  createPointerType(_innerType: any): any { return 'ptr'; }
-  createArrayType(innerType: any, _length: number): any { return innerType; }
-
-  allocMemory(size: number): any {
+  alloc(size: number): any {
     const buf = new ArrayBuffer(size);
     const u8 = new Uint8Array(buf);
     u8.fill(0);
-    const ptr = Bun.ffi.ptr ? Bun.ffi.ptr(buf) : 0;
-    return { __ptr: ptr, __buf: buf, __size: size, __u8: u8 };
+    const ptr = Bun.FFI.ptr ? Bun.FFI.ptr(buf) : 0;
+    return { __ptr: BigInt(typeof ptr === 'bigint' ? ptr : ptr || 0), __buf: buf, __size: size, __u8: u8 };
   }
 
-  freeMemory(ptr: any): void {
+  free(ptr: any): void {
     if (ptr) { ptr.__buf = null; ptr.__u8 = null; }
   }
 
-  getAddressOf(buffer: any): any {
-    const ptr = Bun.ffi.ptr ? Bun.ffi.ptr(buffer) : 0;
-    const size = buffer.byteLength || buffer.length || 0;
-    return { __ptr: ptr, __buf: buffer, __size: size };
+  addressOf(buffer: ArrayBuffer | ArrayBufferView): bigint {
+    const ptr = Bun.FFI.ptr ? Bun.FFI.ptr(buffer) : 0;
+    return BigInt(typeof ptr === 'bigint' ? ptr : ptr || 0);
   }
 
-  createCallback(retType: any, argTypes: any[], jsFn: Function, _options?: any): any {
+  registerCallback(func: Function, retType: NormalizedType, argTypes: NormalizedType[]): any {
     try {
-      const cb = Bun.ffi.Callback({ returns: retType, arguments: argTypes }, jsFn);
-      const ptr = typeof cb.ptr === 'bigint' ? Number(cb.ptr) : cb.ptr;
-      return { __ptr: ptr || 0, __cb: cb, __size: 0 };
+      const nativeRet = this._mapTypeRec(retType);
+      const nativeArgs = argTypes.map(t => this._mapTypeRec(t));
+      const cb = Bun.FFI.Callback({ returns: nativeRet, arguments: nativeArgs }, func);
+      const ptr = cb.ptr;
+      return { __ptr: BigInt(typeof ptr === 'bigint' ? ptr : ptr || 0), __cb: cb, __size: 0 };
     } catch (e: any) {
       throw new FFIError('Failed to create callback: ' + e.message);
     }
   }
 
-  releaseCallback(ptr: any): void {
+  unregisterCallback(ptr: any): void {
     if (ptr && ptr.__cb) ptr.__cb = null;
   }
 
-  getErrno(): number { return 0; }
-  getStrerror(errno: number): string { return 'Error code: ' + errno; }
+  getErrno(): number {
+    try { return Bun.FFI.errno || 0; } catch { return 0; }
+  }
+
+  getStrerror(errno: number): string {
+    if (typeof Bun !== 'undefined' && Bun.FFI && typeof Bun.FFI.strerror === 'function') {
+      try { return Bun.FFI.strerror(errno); } catch {}
+    }
+    return 'Error code: ' + errno;
+  }
 }

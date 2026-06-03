@@ -16,11 +16,13 @@
 
 import { Pointer } from './pointer';
 import { FFIError } from './errors';
+import { FFIAdapter } from './types/adapter';
+import { normalizeType } from './types/normalized';
 
-let _adapter: any = null;
+let _adapter: FFIAdapter | null = null;
 let _finalizationRegistry: FinalizationRegistry<object> | null = null;
 
-export function setCallbackAdapter(adapter: any): void {
+export function setCallbackAdapter(adapter: FFIAdapter): void {
   _adapter = adapter;
 }
 
@@ -28,14 +30,17 @@ export function callback(retType: any, argTypes: any[], jsFn: Function, options?
   if (!_adapter) throw new FFIError('Adapter not initialized');
   if (typeof jsFn !== 'function') throw new FFIError('callback requires a function');
 
-  const ptr = _adapter.createCallback(retType, argTypes, jsFn, options);
+  const normalizedRet = normalizeType(retType);
+  const normalizedArgs = argTypes.map(t => normalizeType(t));
+
+  const ptr = _adapter.registerCallback(jsFn, normalizedRet, normalizedArgs);
   const pointer = new Pointer(ptr);
 
   if (typeof FinalizationRegistry !== 'undefined') {
     if (!_finalizationRegistry) {
       _finalizationRegistry = new FinalizationRegistry((held: any) => {
-        if (_adapter && typeof _adapter.releaseCallback === 'function') {
-          _adapter.releaseCallback(held);
+        if (_adapter && typeof _adapter.unregisterCallback === 'function') {
+          _adapter.unregisterCallback(held);
         }
       });
     }

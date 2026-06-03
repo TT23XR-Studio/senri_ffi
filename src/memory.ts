@@ -14,31 +14,33 @@
  * limitations under the License.
  */
 
-import { Pointer } from './pointer';
+import { Pointer, PTR_BRAND } from './pointer';
 import { FFIError } from './errors';
+import { FFIAdapter } from './types/adapter';
 
-let _adapter: any = null;
+let _adapter: FFIAdapter | null = null;
 
-export function setMemoryAdapter(adapter: any): void {
+export function setMemoryAdapter(adapter: FFIAdapter): void {
   _adapter = adapter;
 }
 
 export function alloc(size: number): Pointer {
   if (!_adapter) throw new FFIError('Adapter not initialized');
   if (typeof size !== 'number' || size <= 0) throw new FFIError('alloc requires a positive size');
-  return new Pointer(_adapter.allocMemory(size));
+  return new Pointer(_adapter.alloc(size));
 }
 
 export function free(ptr: Pointer | any): void {
   if (!_adapter) throw new FFIError('Adapter not initialized');
   const data = ptr instanceof Pointer ? ptr._data : ptr;
-  _adapter.freeMemory(data);
+  _adapter.free(data);
 }
 
 export function addressOf(buffer: ArrayBuffer | ArrayBufferView): Pointer {
   if (!_adapter) throw new FFIError('Adapter not initialized');
   if (!buffer || typeof buffer !== 'object') throw new FFIError('addressOf requires ArrayBuffer or TypedArray');
-  return new Pointer(_adapter.getAddressOf(buffer));
+  const addr = _adapter.addressOf(buffer);
+  return new Pointer({ __ptr: addr, __buf: buffer, __size: buffer.byteLength || (buffer as any).length || 0, [PTR_BRAND]: true });
 }
 
 export function errno(): number {

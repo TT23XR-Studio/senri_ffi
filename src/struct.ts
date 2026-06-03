@@ -17,6 +17,32 @@
 import { computeLayout, FieldInfo } from './types/utils';
 import { Pointer } from './pointer';
 
+export interface StructClass {
+  new (init?: Record<string, any>): StructInstance;
+  readonly sizeof: number;
+  readonly align: number;
+  fromPointer(ptr: any): StructInstance;
+  fields: Record<string, any>;
+  packed?: number;
+}
+
+export interface StructInstance {
+  _buffer: ArrayBuffer;
+  _view: DataView;
+  _fields: FieldInfo[];
+  readonly ptr: Pointer;
+  toPointer(): Pointer;
+  [key: string]: any;
+}
+
+let _allocNative: ((size: number) => any) | null = null;
+let _freeNative: ((ptr: any) => void) | null = null;
+
+export function setStructAlloc(alloc: (size: number) => any, free: (ptr: any) => void): void {
+  _allocNative = alloc;
+  _freeNative = free;
+}
+
 export function createStruct(fields: Record<string, any>, options?: { packed?: number }): any {
   const packed = options && options.packed;
   const { fieldInfos, totalSize, maxAlign } = computeLayout(fields, packed);
@@ -56,10 +82,18 @@ export function createStruct(fields: Record<string, any>, options?: { packed?: n
     }
 
     get ptr(): Pointer {
-      return new Pointer({ __buf: this._buffer, __ptr: 0, __size: totalSize });
+      return new Pointer({ __buf: this._buffer, __ptr: 0n, __size: totalSize });
     }
 
-    toPointer(): Pointer { return this.ptr; }
+    toPointer(): Pointer {
+      const native = _allocNative ? _allocNative(totalSize) : null;
+      if (native && native.__buf) {
+        const dst = new Uint8Array(native.__buf);
+        dst.set(new Uint8Array(this._buffer));
+        return new Pointer(native);
+      }
+      return this.ptr;
+    }
   }
 
   for (const fi of fieldInfos) {
@@ -75,10 +109,8 @@ export function createStruct(fields: Record<string, any>, options?: { packed?: n
   (StructInstance.prototype as any).__senri_type = 'struct';
   (StructInstance as any).fields = fields;
   (StructInstance as any).packed = packed;
-  (StructInstance as any).sizeof = totalSize;
-  (StructInstance as any).align = maxAlign;
 
-  return StructInstance;
+  return StructInstance as unknown as StructClass;
 }
 
 function readValue(view: DataView, offset: number, type: any, _size: number): any {
@@ -94,7 +126,7 @@ function readValue(view: DataView, offset: number, type: any, _size: number): an
       case 'uint64':  return view.getBigUint64(offset, true);
       case 'float32': return view.getFloat32(offset, true);
       case 'float64': return view.getFloat64(offset, true);
-      case 'pointer': case 'cstring': return Number(view.getBigUint64(offset, true));
+      case 'pointer': case 'cstring': return view.getBigUint64(offset, true);
       default: return 0;
     }
   }
@@ -124,6 +156,6 @@ function writeValue(view: DataView, offset: number, type: any, _size: number, va
   }
 }
 
-export function struct(fields: Record<string, any>, options?: { packed?: number }): any {
+export function struct(fields: Record<string, any>, options?: { packed?: number }): StructClass {
   return createStruct(fields, options);
 }
