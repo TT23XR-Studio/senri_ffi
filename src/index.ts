@@ -35,7 +35,7 @@ import { setMemoryAdapter } from './memory';
 import { setLibraryAdapter } from './library';
 import { setStructAlloc } from './struct';
 
-declare var globalThis: any;
+declare var KossJS: { runtime: 'KossJS', version: string } | undefined;
 declare var Bun: any;
 declare var process: any;
 declare var Deno: any;
@@ -43,7 +43,7 @@ declare var Deno: any;
 let _adapter: FFIAdapter | null = null;
 
 function detectRuntime(): FFIAdapter {
-  if (typeof globalThis._senri_ffi !== 'undefined' && globalThis._senri_ffi) {
+  if (typeof KossJS !== 'undefined' && KossJS.runtime === 'KossJS') {
     return new KossJSAdapter();
   }
   if (typeof Bun !== 'undefined' && Bun.FFI) {
