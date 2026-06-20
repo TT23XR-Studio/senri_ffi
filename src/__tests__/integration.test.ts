@@ -25,7 +25,20 @@ const hasKoffi = (() => {
   try { require('koffi'); return true; } catch { return false; }
 })();
 
-const DLL_PATH = join(__dirname, '..', '..', 'test-lib', 'target', 'release', 'senri_test.dll');
+function getLibPath(): string {
+  const platform = process.platform;
+  let libName: string;
+  if (platform === 'win32') {
+    libName = 'senri_test.dll';
+  } else if (platform === 'darwin') {
+    libName = 'libsenri_test.dylib';
+  } else {
+    libName = 'libsenri_test.so';
+  }
+  return join(__dirname, '..', '..', 'test-lib', 'target', 'release', libName);
+}
+
+const DLL_PATH = getLibPath();
 
 describe.runIf(isNode && hasKoffi)('SenRi FFI Integration (Node.js + koffi)', () => {
   let senri: typeof SenriFFI;
