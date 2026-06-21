@@ -34,14 +34,19 @@ import { setMemoryAdapter } from '../memory';
 import { setLibraryAdapter } from '../library';
 
 declare var globalThis: any;
+declare var KossJS: any;
 
-const ffi = globalThis._senri_ffi;
-if (!ffi) throw new FFIError('_senri_ffi not found in global scope');
+const isKossJSRuntime = typeof KossJS !== 'undefined' && KossJS.runtime === 'KossJS';
+const ffi = isKossJSRuntime ? globalThis._senri_ffi : undefined;
 
-const adapter = new KossJSAdapter();
-setCallbackAdapter(adapter);
-setLibraryAdapter(adapter);
-setMemoryAdapter(adapter);
+if (isKossJSRuntime && !ffi) throw new FFIError('_senri_ffi not found in global scope');
+
+if (ffi) {
+  const adapter = new KossJSAdapter();
+  setCallbackAdapter(adapter);
+  setLibraryAdapter(adapter);
+  setMemoryAdapter(adapter);
+}
 
 export function pointer(type?: any): any {
   return { __senri_type: 'pointer', innerType: type || TYPES.pointer };

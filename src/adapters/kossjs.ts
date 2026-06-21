@@ -27,7 +27,7 @@ export class KossJSAdapter implements FFIAdapter {
 
   constructor() {
     const ffi = globalThis._senri_ffi;
-    if (!ffi) throw new FFIError('_senri_ffi not found in global scope');
+    if (!ffi) throw new FFIError('_senri_ffi not found in global scope. KossJSAdapter must be used in KossJS runtime.');
     this._ffi = ffi;
     this._libs = new Map();
   }

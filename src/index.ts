@@ -36,6 +36,7 @@ import { setLibraryAdapter } from './library';
 import { setStructAlloc } from './struct';
 
 declare var KossJS: { runtime: 'KossJS', version: string } | undefined;
+declare var globalThis: any;
 declare var Bun: any;
 declare var process: any;
 declare var Deno: any;
