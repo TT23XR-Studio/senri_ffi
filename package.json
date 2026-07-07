@@ -21,8 +21,7 @@
     }
   },
   "files": [
-    "dist/",
-    "src/"
+    "dist/"
   ],
   "scripts": {
     "prebuild": "npx tsx scripts/generate-worker-code.ts && npx tsx scripts/generate-worker-code.ts --bun",
