@@ -46,8 +46,8 @@
     "typescript"
   ],
   "license": "Apache-2.0",
-  "Dependencies": {
-    "koffi": ">=1.0.0"
+  "dependencies": {
+    "koffi": ">=3.0.0"
   },
   "engines": {
     "node": ">=18"
