@@ -46,13 +46,8 @@
     "typescript"
   ],
   "license": "Apache-2.0",
-  "peerDependencies": {
+  "Dependencies": {
     "koffi": ">=1.0.0"
-  },
-  "peerDependenciesMeta": {
-    "koffi": {
-      "optional": true
-    }
   },
   "engines": {
     "node": ">=18"
