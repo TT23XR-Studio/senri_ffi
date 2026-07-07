@@ -16,39 +16,43 @@
 
 import { Pointer, PTR_BRAND } from './pointer';
 import { FFIError } from './errors';
-import { FFIAdapter } from './types/adapter';
-
-let _adapter: FFIAdapter | null = null;
-
-export function setMemoryAdapter(adapter: FFIAdapter): void {
-  _adapter = adapter;
-}
+import { getGlobalAdapter } from './globals';
+import { getResourceRegistry } from './resource-registry';
 
 export function alloc(size: number): Pointer {
-  if (!_adapter) throw new FFIError('Adapter not initialized');
   if (typeof size !== 'number' || size <= 0) throw new FFIError('alloc requires a positive size');
-  return new Pointer(_adapter.alloc(size));
+  const adapter = getGlobalAdapter();
+  const result = adapter.alloc(size);
+  getResourceRegistry().registerMemory(result);
+  return new Pointer(result);
 }
 
 export function free(ptr: Pointer | any): void {
-  if (!_adapter) throw new FFIError('Adapter not initialized');
+  const adapter = getGlobalAdapter();
   const data = ptr instanceof Pointer ? ptr._data : ptr;
-  _adapter.free(data);
+  getResourceRegistry().unregisterMemory(data);
+  adapter.free(data);
 }
 
 export function addressOf(buffer: ArrayBuffer | ArrayBufferView): Pointer {
-  if (!_adapter) throw new FFIError('Adapter not initialized');
   if (!buffer || typeof buffer !== 'object') throw new FFIError('addressOf requires ArrayBuffer or TypedArray');
-  const addr = _adapter.addressOf(buffer);
+  const adapter = getGlobalAdapter();
+  const addr = adapter.addressOf(buffer);
   return new Pointer({ __ptr: addr, __buf: buffer, __size: buffer.byteLength || (buffer as any).length || 0, [PTR_BRAND]: true });
 }
 
 export function errno(): number {
-  if (!_adapter) return 0;
-  return _adapter.getErrno();
+  try {
+    return getGlobalAdapter().getErrno();
+  } catch {
+    return 0;
+  }
 }
 
 export function strerror(code: number = 0): string {
-  if (!_adapter) return '';
-  return _adapter.getStrerror(code);
+  try {
+    return getGlobalAdapter().getStrerror(code);
+  } catch {
+    return '';
+  }
 }

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-export { FFIError, FFITypeError } from './errors';
+export { FFIError, FFITypeError, FFIBackendError } from './errors';
 export { Pointer } from './pointer';
 export { struct } from './struct';
 export { callback } from './callback';
@@ -23,6 +23,9 @@ export { Library } from './library';
 export type { FFIAdapter } from './types/adapter';
 export type { NormalizedType, PrimitiveName } from './types/normalized';
 
+export type { LibraryLike, PartialLibraryLike } from './types/library-like';
+export { isLibraryLike, getMissingMethods, createBackendWithFallback } from './types/library-like';
+
 import { TYPES } from './types/constants';
 import { FFIAdapter } from './types/adapter';
 import { KossJSAdapter } from './adapters/kossjs';
@@ -30,9 +33,7 @@ import { NodeAdapter } from './adapters/node';
 import { BunAdapter } from './adapters/bun';
 import { DenoAdapter } from './adapters/deno';
 
-import { setCallbackAdapter } from './callback';
-import { setMemoryAdapter } from './memory';
-import { setLibraryAdapter } from './library';
+import { setGlobalAdapter, isAdapterInitialized } from './globals';
 import { setStructAlloc } from './struct';
 
 declare var KossJS: { runtime: 'KossJS', version: string } | undefined;
@@ -40,8 +41,6 @@ declare var globalThis: any;
 declare var Bun: any;
 declare var process: any;
 declare var Deno: any;
-
-let _adapter: FFIAdapter | null = null;
 
 function detectRuntime(): FFIAdapter {
   if (typeof KossJS !== 'undefined' && KossJS.runtime === 'KossJS') {
@@ -59,14 +58,12 @@ function detectRuntime(): FFIAdapter {
   throw new Error('Unsupported JavaScript runtime: expected KossJS, Bun (>=1.0), Deno, or Node.js (>=18)');
 }
 
-if (!_adapter) {
-  _adapter = detectRuntime();
-  setCallbackAdapter(_adapter);
-  setLibraryAdapter(_adapter);
-  setMemoryAdapter(_adapter);
+if (!isAdapterInitialized()) {
+  const adapter = detectRuntime();
+  setGlobalAdapter(adapter);
   setStructAlloc(
-    (size: number) => _adapter!.alloc(size),
-    (ptr: any) => _adapter!.free(ptr),
+    (size: number) => adapter.alloc(size),
+    (ptr: any) => adapter.free(ptr),
   );
 }
 

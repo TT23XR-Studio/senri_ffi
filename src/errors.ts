@@ -27,3 +27,10 @@ export class FFITypeError extends FFIError {
     this.name = 'FFITypeError';
   }
 }
+
+export class FFIBackendError extends FFIError {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FFIBackendError';
+  }
+}
