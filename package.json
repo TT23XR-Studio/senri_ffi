@@ -1,62 +1,12 @@
 {
-  "name": "@tt23xrstudio/senri_ffi",
-  "publishConfig": {
-    "access": "public"
-  },
-  "version": "0.3.2",
-  "description": "Unified FFI library for [KossJS Runtime](github.com/KossJS), Node.js Runtime, and Bun Runtime",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "author": "TT23XR Studio",
-  "exports": {
-    ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      },
-      "require": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      }
-    }
-  },
-  "files": [
-    "dist/"
-  ],
+  "name": "senri-ffi-monorepo",
+  "private": true,
   "scripts": {
-    "prebuild": "npx tsx scripts/generate-worker-code.ts && npx tsx scripts/generate-worker-code.ts --bun",
-    "build": "tsc",
-    "test:node": "vitest run src/__tests__/node-ffi.test.ts",
-    "test:bun": "bun test src/__tests__/bun-ffi.test.ts",
-    "test:deno": "deno test --no-check --allow-ffi --allow-read --sloppy-imports src/__tests__/deno-ffi.test.ts",
-    "test:kossjs": "tsc && esbuild src/__tests__/kossjs-entry.ts --bundle --format=iife --global-name=SenRiFFI --platform=node --external:koffi --external:@koromix/* --external:./async/* --outfile=dist/kossjs-bundle.js --log-level=error && vitest run src/__tests__/kossjs-ffi.test.ts",
-    "test:all": "vitest run src/__tests__/node-ffi.test.ts src/__tests__/integration.test.ts src/__tests__/normalize.test.ts src/__tests__/pointer.test.ts",
-    "test:watch": "vitest"
-  },
-  "keywords": [
-    "ffi",
-    "senri",
-    "kossjs",
-    "bun",
-    "node",
-    "native",
-    "c",
-    "dlopen",
-    "typescript"
-  ],
-  "license": "Apache-2.0",
-  "dependencies": {
-    "koffi": ">=3.0.0"
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "devDependencies": {
-    "@types/bun": "^1.3.14",
-    "@types/deno": "^2.7.0",
-    "@types/node": "^26.1.0",
-    "esbuild": "^0.28.1",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.7"
+    "build": "pnpm --filter @tt23xrstudio/senri_ffi build",
+    "test:all": "pnpm --filter @tt23xrstudio/senri_ffi test:all",
+    "test:node": "pnpm --filter @tt23xrstudio/senri_ffi test:node",
+    "test:bun": "pnpm --filter @tt23xrstudio/senri_ffi test:bun",
+    "test:deno": "pnpm --filter @tt23xrstudio/senri_ffi test:deno",
+    "test:kossjs": "pnpm --filter @tt23xrstudio/senri_ffi test:kossjs"
   }
 }

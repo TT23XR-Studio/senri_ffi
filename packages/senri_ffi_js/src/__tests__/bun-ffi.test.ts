@@ -24,9 +24,9 @@ import type * as SenriFFI from '../index';
 const platform = process.platform;
 
 function getLibPath(): string {
-  if (platform === 'win32') return join(import.meta.dir, '..', '..', 'test-lib', 'target', 'release', 'senri_test.dll');
-  if (platform === 'darwin') return join(import.meta.dir, '..', '..', 'test-lib', 'target', 'release', 'libsenri_test.dylib');
-  return join(import.meta.dir, '..', '..', 'test-lib', 'target', 'release', 'libsenri_test.so');
+  if (platform === 'win32') return join(import.meta.dir, '..', '..', '..', '..', 'test-lib', 'target', 'release', 'senri_test.dll');
+  if (platform === 'darwin') return join(import.meta.dir, '..', '..', '..', '..', 'test-lib', 'target', 'release', 'libsenri_test.dylib');
+  return join(import.meta.dir, '..', '..', '..', '..', 'test-lib', 'target', 'release', 'libsenri_test.so');
 }
 
 describe('SenRi FFI Integration (Bun)', () => {

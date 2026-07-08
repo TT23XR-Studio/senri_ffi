@@ -26,7 +26,7 @@ if (Deno.build.os === 'windows') {
 } else {
   libname = 'libsenri_test.so';
 }
-const dllUrl = new URL(`../../test-lib/target/release/${libname}`, import.meta.url);
+const dllUrl = new URL(`../../../../test-lib/target/release/${libname}`, import.meta.url);
 let DLL = dllUrl.pathname;
 if (Deno.build.os === 'windows' && DLL.startsWith('/')) {
   DLL = DLL.slice(1);

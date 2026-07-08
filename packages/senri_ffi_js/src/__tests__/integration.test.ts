@@ -35,7 +35,7 @@ function getLibPath(): string {
   } else {
     libName = 'libsenri_test.so';
   }
-  return join(__dirname, '..', '..', 'test-lib', 'target', 'release', libName);
+  return join(__dirname, '..', '..', '..', '..', 'test-lib', 'target', 'release', libName);
 }
 
 const DLL_PATH = getLibPath();

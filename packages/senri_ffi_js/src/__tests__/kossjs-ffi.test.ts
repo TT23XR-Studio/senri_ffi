@@ -32,15 +32,15 @@ function findLibrary(): string {
   let candidates: string[] = [];
   if (platform() === 'win32') {
     candidates = [
-      join(process.cwd(), 'test-lib', 'target', 'release', 'senri_test.dll'),
+      join(process.cwd(), '..', '..', 'test-lib', 'target', 'release', 'senri_test.dll'),
     ];
   } else if (platform() === 'darwin') {
     candidates = [
-      join(process.cwd(), 'test-lib', 'target', 'release', 'libsenri_test.dylib'),
+      join(process.cwd(), '..', '..', 'test-lib', 'target', 'release', 'libsenri_test.dylib'),
     ];
   } else {
     candidates = [
-      join(process.cwd(), 'test-lib', 'target', 'release', 'libsenri_test.so'),
+      join(process.cwd(), '..', '..', 'test-lib', 'target', 'release', 'libsenri_test.so'),
     ];
   }
   console.log('Searching for kossjs library in:', candidates);

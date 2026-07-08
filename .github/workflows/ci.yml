@@ -43,7 +43,7 @@ jobs:
         run: pnpm build
 
       - name: Type check
-        run: npx tsc --noEmit
+        run: npx tsc --noEmit --project packages/senri_ffi_js
 
       - name: Node.js tests
         run: pnpm test:all
@@ -52,10 +52,12 @@ jobs:
         uses: oven-sh/setup-bun@v2
 
       - name: Bun tests
+        working-directory: packages/senri_ffi_js
         run: bun test src/__tests__/bun-ffi.test.ts
 
       - name: Setup Deno
         uses: denoland/setup-deno@v2
 
       - name: Deno tests
+        working-directory: packages/senri_ffi_js
         run: deno test --no-check --allow-ffi --allow-read --sloppy-imports src/__tests__/deno-ffi.test.ts
