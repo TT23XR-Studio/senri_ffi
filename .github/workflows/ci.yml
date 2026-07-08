@@ -43,7 +43,7 @@ jobs:
         run: pnpm build
 
       - name: Type check
-        run: npx tsc --noEmit --project packages/senri_ffi_js
+        run: pnpm --filter @tt23xrstudio/senri_ffi exec tsc --noEmit
 
       - name: Node.js tests
         run: pnpm test:all
