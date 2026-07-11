@@ -1,0 +1,5 @@
+{
+  "extraPaths": [
+    "packages/senri_ffi_py/src/"
+  ]
+}
