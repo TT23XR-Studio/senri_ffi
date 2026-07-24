@@ -1,3 +1,4 @@
+import asyncio
 import ctypes
 
 import pytest
@@ -200,3 +201,40 @@ class TestLibraryClose:
 class TestLibraryPath:
     def test_lib_path(self, lib):
         assert "senri_test" in lib.lib_path or "libsenri_test" in lib.lib_path
+
+
+class TestAsyncFunc:
+    def test_async_func_call(self, lib):
+        async def _run():
+            add = lib.funcAsync("add_int", "int32", ["int32", "int32"])
+            return await add(10, 20)
+        assert asyncio.run(_run()) == 30
+
+    def test_async_func_multiple_calls(self, lib):
+        async def _run():
+            add = lib.funcAsync("add_int", "int32", ["int32", "int32"])
+            r1 = await add(1, 2)
+            r2 = await add(-5, 5)
+            r3 = await add(0, 0)
+            return r1, r2, r3
+        assert asyncio.run(_run()) == (3, 0, 0)
+
+    def test_async_func_cache(self, lib):
+        async def _run():
+            f1 = lib.funcAsync("add_int", "int32", ["int32", "int32"])
+            f2 = lib.funcAsync("add_int", "int32", ["int32", "int32"])
+            assert f1 is f2
+        asyncio.run(_run())
+
+    def test_async_func_float(self, lib):
+        async def _run():
+            add_f = lib.funcAsync("add_float", "float64", ["float64", "float64"])
+            return await add_f(1.5, 2.5)
+        result = asyncio.run(_run())
+        assert abs(result - 4.0) < 0.001
+
+    def test_async_close(self, lib):
+        async def _run():
+            await lib.closeAsync()
+            assert lib._closed
+        asyncio.run(_run())

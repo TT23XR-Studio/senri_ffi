@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, cast
 
+import asyncio
+
 from senri_ffi.adapters.ctypes_adapter import CtypesAdapter
 from senri_ffi.adapters.custom_wrapper import CustomAdapterWrapper
 from senri_ffi.errors import FFIError, FFITypeError
@@ -151,6 +153,37 @@ class Library:
         self._set_cache(self._func_cache, cache_key, bound)
         return bound
 
+    def funcAsync(
+        self,
+        name: str,
+        ret_type: Any,
+        arg_types: list[Any],
+        options: Any = None,
+    ) -> Callable[..., Any]:
+        self._check_alive()
+
+        normalized_ret = normalize_type(ret_type)
+        normalized_args = [normalize_type(t) for t in arg_types]
+
+        cache_key = (
+            name
+            + "|"
+            + serialize_type(normalized_ret)
+            + "|"
+            + ",".join(serialize_type(a) for a in normalized_args)
+        )
+        cached = self._async_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        bound = self.func(name, ret_type, arg_types, options)
+
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            return await asyncio.to_thread(lambda: bound(*args, **kwargs))
+
+        self._set_cache(self._async_cache, cache_key, async_wrapper)
+        return async_wrapper
+
     @property
     def lib_path(self) -> str:
         return self._lib_path
@@ -160,5 +193,11 @@ class Library:
             return
         self._adapter.close_library(self._handle)
         self._func_cache.clear()
+        self._async_cache.clear()
         self._handle = None
         self._closed = True
+
+    async def closeAsync(self) -> None:
+        if self._closed:
+            return
+        await asyncio.to_thread(self.close)
