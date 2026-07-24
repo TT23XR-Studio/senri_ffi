@@ -78,4 +78,4 @@ jobs:
 
       - name: Python tests
         working-directory: packages/senri_ffi_py
-        run: pytest -v
+        run: uv run  pytest -v
