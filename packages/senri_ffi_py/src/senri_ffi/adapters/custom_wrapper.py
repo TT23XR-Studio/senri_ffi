@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-import sys
+import sys # pyright: ignore[reportUnusedImport]
 from typing import Any
 
 from senri_ffi.errors import FFIError

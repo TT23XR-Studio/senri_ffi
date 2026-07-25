@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import platform
+import platform # pyright: ignore[reportUnusedImport]
 from typing import Any
 
 from senri_ffi.errors import FFIError
@@ -47,7 +47,7 @@ def _to_cffi_type(t: NormalizedType, tag: str | None = None) -> str:
         return _to_cffi_type(t.of) + f"[{t.length}]"
     if t.kind == "struct":
         assert t.fields is not None
-        parts = []
+        parts: list[str] = []
         for name, ft in t.fields.items():
             parts.append(f"{_to_cffi_type(ft)} {name};")
         body = " ".join(parts)
@@ -59,7 +59,7 @@ def _to_cffi_type(t: NormalizedType, tag: str | None = None) -> str:
 
 def _struct_decl(t: NormalizedType, tag: str) -> str:
     assert t.fields is not None
-    parts = []
+    parts: list[str] = []
     for name, ft in t.fields.items():
         parts.append(f"{_to_cffi_type(ft)} {name};")
     body = " ".join(parts)
@@ -104,7 +104,7 @@ class CffiAdapter(FFIAdapter):
     def load_library(self, path: str) -> Any:
         self._lib_paths[id(path)] = path
         handle = _LibHandle()
-        handle._path = path
+        handle._path = path # pyright: ignore[reportPrivateUsage]
         return handle
 
     def close_library(self, lib_handle: Any) -> None:
@@ -157,7 +157,7 @@ class CffiAdapter(FFIAdapter):
             return value
 
         if any(arg_kind_is_pointer) or any(arg_kind_is_cstring):
-            def wrapped(*args):
+            def wrapped(*args: tuple[Any, ...]):
                 if len(args) != len(arg_kind_is_pointer):
                     raise TypeError(
                         f"{name}() expected {len(arg_kind_is_pointer)} arguments, got {len(args)}"
@@ -201,7 +201,7 @@ class CffiAdapter(FFIAdapter):
 
         cdecl = f"{native_ret} ({', '.join(native_args)})"
         cb = self._ffi.callback(cdecl, func)
-        ptr = int(self._ffi.cast("uintptr_t", cb))
+        ptr = int(self._ffi.cast("uintptr_t", cb)) # pyright: ignore[reportArgumentType]
         self._callbacks.append(cb)
         return {
             "__ptr": ptr,

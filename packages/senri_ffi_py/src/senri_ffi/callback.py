@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import weakref
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from senri_ffi.errors import FFIError
 from senri_ffi.globals import get_global_adapter

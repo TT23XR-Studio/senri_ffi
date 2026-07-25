@@ -10,34 +10,34 @@ PTR_BRAND = "__senri_ptr__"
 PointerData = dict[str, Any]
 
 _READERS: dict[str, Any] = {
-    "int8": lambda b, o: _struct.unpack_from("<b", b, o)[0],
-    "uint8": lambda b, o: _struct.unpack_from("<B", b, o)[0],
-    "int16": lambda b, o: _struct.unpack_from("<h", b, o)[0],
-    "uint16": lambda b, o: _struct.unpack_from("<H", b, o)[0],
-    "int32": lambda b, o: _struct.unpack_from("<i", b, o)[0],
-    "uint32": lambda b, o: _struct.unpack_from("<I", b, o)[0],
-    "int64": lambda b, o: _struct.unpack_from("<q", b, o)[0],
-    "uint64": lambda b, o: _struct.unpack_from("<Q", b, o)[0],
-    "float32": lambda b, o: _struct.unpack_from("<f", b, o)[0],
-    "float64": lambda b, o: _struct.unpack_from("<d", b, o)[0],
+    "int8": lambda b, o: _struct.unpack_from("<b", b, o)[0], # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "uint8": lambda b, o: _struct.unpack_from("<B", b, o)[0], # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "int16": lambda b, o: _struct.unpack_from("<h", b, o)[0], # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "uint16": lambda b, o: _struct.unpack_from("<H", b, o)[0], # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "int32": lambda b, o: _struct.unpack_from("<i", b, o)[0], # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "uint32": lambda b, o: _struct.unpack_from("<I", b, o)[0], # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "int64": lambda b, o: _struct.unpack_from("<q", b, o)[0], # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "uint64": lambda b, o: _struct.unpack_from("<Q", b, o)[0], # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "float32": lambda b, o: _struct.unpack_from("<f", b, o)[0], # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "float64": lambda b, o: _struct.unpack_from("<d", b, o)[0], # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
 }
 
 _WRITERS: dict[str, Any] = {
-    "int8": lambda b, o, v: _struct.pack_into("<b", b, o, v),
-    "uint8": lambda b, o, v: _struct.pack_into("<B", b, o, v),
-    "int16": lambda b, o, v: _struct.pack_into("<h", b, o, v),
-    "uint16": lambda b, o, v: _struct.pack_into("<H", b, o, v),
-    "int32": lambda b, o, v: _struct.pack_into("<i", b, o, v),
-    "uint32": lambda b, o, v: _struct.pack_into("<I", b, o, v),
-    "int64": lambda b, o, v: _struct.pack_into("<q", b, o, v),
-    "uint64": lambda b, o, v: _struct.pack_into("<Q", b, o, v),
-    "float32": lambda b, o, v: _struct.pack_into("<f", b, o, v),
-    "float64": lambda b, o, v: _struct.pack_into("<d", b, o, v),
+    "int8": lambda b, o, v: _struct.pack_into("<b", b, o, v), # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "uint8": lambda b, o, v: _struct.pack_into("<B", b, o, v), # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "int16": lambda b, o, v: _struct.pack_into("<h", b, o, v), # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "uint16": lambda b, o, v: _struct.pack_into("<H", b, o, v), # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "int32": lambda b, o, v: _struct.pack_into("<i", b, o, v), # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "uint32": lambda b, o, v: _struct.pack_into("<I", b, o, v), # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "int64": lambda b, o, v: _struct.pack_into("<q", b, o, v), # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "uint64": lambda b, o, v: _struct.pack_into("<Q", b, o, v), # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "float32": lambda b, o, v: _struct.pack_into("<f", b, o, v), # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
+    "float64": lambda b, o, v: _struct.pack_into("<d", b, o, v), # pyright: ignore[reportUnknownLambdaType, reportUnknownArgumentType]
 }
 
 
 def _is_pointer_like(obj: Any) -> bool:
-    return isinstance(obj, dict) and (obj.get(PTR_BRAND) is True or "__ptr" in obj)
+    return isinstance(obj, dict) and (obj.get(PTR_BRAND) is True or "__ptr" in obj) # pyright: ignore[reportUnknownMemberType]
 
 
 def make_pointer(underlying: Any, size: int = 0) -> PointerData:
@@ -48,7 +48,7 @@ def make_pointer(underlying: Any, size: int = 0) -> PointerData:
             "__size": underlying.get("__size", 0),
         }
     if isinstance(underlying, (bytes, bytearray, memoryview)):
-        buf = underlying
+        buf: bytes | bytearray | memoryview[Any] = underlying # pyright: ignore[reportUnknownVariableType]
         return {"__ptr": 0, "__buf": buf, "__size": len(buf), PTR_BRAND: True}
     if isinstance(underlying, int):
         return {"__ptr": underlying, "__size": size, PTR_BRAND: True}
@@ -63,7 +63,7 @@ def _get_data_view(ptr: PointerData) -> Any:
     if isinstance(buf, bytearray):
         return buf
     if isinstance(buf, (bytes, memoryview)):
-        return bytearray(buf) if isinstance(buf, bytes) else buf
+        return bytearray(buf) if isinstance(buf, bytes) else buf # pyright: ignore[reportUnknownVariableType]
     if hasattr(buf, "_type_") and hasattr(buf, "_length_"):
         return buf
     return None

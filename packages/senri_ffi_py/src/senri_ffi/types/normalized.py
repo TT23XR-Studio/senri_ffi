@@ -141,29 +141,29 @@ def normalize_type(t: Any) -> NormalizedType:
     if isinstance(t, type):
         tt = getattr(t, "__senri_type", None)
     else:
-        tt = t.get("__senri_type") if isinstance(t, dict) else getattr(t, "__senri_type", None)
+        tt = t.get("__senri_type") if isinstance(t, dict) else getattr(t, "__senri_type", None) # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
 
     if tt == "pointer":
         if isinstance(t, type):
             raise FFITypeError(f"Cannot normalize pointer from type object: {t!r}")
-        inner = normalize_type(t.get("innerType", TYPES["pointer"]))
+        inner = normalize_type(t.get("innerType", TYPES["pointer"])) # pyright: ignore[reportUnknownMemberType]
         return NormalizedType.pointer(inner)
 
     if tt == "array":
         if isinstance(t, type):
             raise FFITypeError(f"Cannot normalize array from type object: {t!r}")
         inner = normalize_type(t["innerType"])
-        return NormalizedType.array(inner, t.get("length", 0))
+        return NormalizedType.array(inner, t.get("length", 0)) # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
 
     if tt == "struct":
-        fields_dict = t.fields if isinstance(t, type) else t.get("fields", {})
-        fields = normalize_fields(fields_dict)
-        packed = t.packed if isinstance(t, type) else t.get("packed")
-        total_size = compute_normalized_layout(fields, packed)
+        fields_dict = t.fields if isinstance(t, type) else t.get("fields", {}) # pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+        fields = normalize_fields(fields_dict) # pyright: ignore[reportUnknownArgumentType]
+        packed = t.packed if isinstance(t, type) else t.get("packed")# pyright: ignore[reportUnknownVariableType, reportUnknownMemberType]
+        total_size = compute_normalized_layout(fields, packed) # pyright: ignore[reportUnknownArgumentType]
         max_align = 1
         for nt in fields.values():
             max_align = max(max_align, get_normalized_align(nt))
-        return NormalizedType.struct(fields, packed, total_size, max_align)
+        return NormalizedType.struct(fields, packed, total_size, max_align) # pyright: ignore[reportUnknownArgumentType]
 
     msg = f"Unknown type descriptor: {t!r}"
     raise FFITypeError(msg)

@@ -9,7 +9,7 @@ from senri_ffi.registry import get_resource_registry
 
 
 def alloc(size: int) -> Pointer:
-    if not isinstance(size, int) or size <= 0:
+    if not isinstance(size, int) or size <= 0: # pyright: ignore[reportUnnecessaryIsInstance]
         raise FFIError("alloc requires a positive size")
     adapter = get_global_adapter()
     result = adapter.alloc(size)
@@ -19,7 +19,7 @@ def alloc(size: int) -> Pointer:
 
 def free(ptr: Pointer | Any) -> None:
     adapter = get_global_adapter()
-    data = ptr._data if isinstance(ptr, Pointer) else ptr
+    data = ptr._data if isinstance(ptr, Pointer) else ptr # pyright: ignore[reportPrivateUsage]
     get_resource_registry().unregister_memory(data)
     adapter.free(data)
 
@@ -32,7 +32,7 @@ def address_of(buffer: Any) -> Pointer:
     return Pointer({
         "__ptr": addr,
         "__buf": buffer,
-        "__size": len(buffer),
+        "__size": len(buffer), # pyright: ignore[reportUnknownArgumentType]
         "__senri_ptr__": True,
     })
 

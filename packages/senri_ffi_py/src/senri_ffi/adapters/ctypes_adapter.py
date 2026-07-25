@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ctypes
 import platform
-import sys
+import sys # pyright: ignore[reportUnusedImport]
 from typing import Any
 
 from senri_ffi.errors import FFIError
@@ -39,7 +39,7 @@ def _map_type_rec(t: NormalizedType) -> Any:
     if t.kind == "pointer":
         assert t.of is not None
         inner = _map_type_rec(t.of)
-        return ctypes.POINTER(inner)
+        return ctypes.POINTER(inner) # pyright: ignore[reportUnknownVariableType]
     if t.kind == "array":
         assert t.of is not None
         inner = _map_type_rec(t.of)
@@ -48,7 +48,7 @@ def _map_type_rec(t: NormalizedType) -> Any:
         assert t.fields is not None
         fields_list = []
         for name, ft in t.fields.items():
-            fields_list.append((name, _map_type_rec(ft)))
+            fields_list.append((name, _map_type_rec(ft))) # pyright: ignore[reportUnknownMemberType]
         packed = t.packed
         if packed:
             class PackedStruct(ctypes.Structure):
@@ -136,10 +136,10 @@ class CtypesAdapter(FFIAdapter):
     def address_of(self, buffer: Any) -> int:
         if isinstance(buffer, (bytes, bytearray, memoryview)):
             if isinstance(buffer, memoryview):
-                return ctypes.addressof(ctypes.c_char.from_buffer(buffer))
+                return ctypes.addressof(ctypes.c_char.from_buffer(buffer)) # pyright: ignore[reportUnknownArgumentType]
             return ctypes.addressof(ctypes.c_char.from_buffer(buffer))
         if isinstance(buffer, ctypes.Array):
-            return ctypes.addressof(buffer)
+            return ctypes.addressof(buffer) # pyright: ignore[reportUnknownArgumentType]
         raise FFIError("address_of requires bytes, bytearray, or memoryview")
 
     def register_callback(

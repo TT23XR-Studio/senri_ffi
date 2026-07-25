@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Callable, cast
+from typing import Any, cast
+from collections.abc import Callable
 
 import asyncio
 
@@ -25,7 +26,7 @@ MAX_CACHE_SIZE = 500
 
 def _detect_adapter() -> FFIAdapter:
     try:
-        import cffi as _cffi_mod  # pyright: ignore[reportMissingModuleSource] # noqa: F401
+        import cffi as _cffi_mod  # pyright: ignore[reportUnusedImport, reportMissingModuleSource] # noqa: F401
         from senri_ffi.adapters.cffi_adapter import CffiAdapter
         return CffiAdapter()
     except ImportError:

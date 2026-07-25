@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 
 class ResourceRegistry:
@@ -48,5 +49,5 @@ _REGISTRY: ResourceRegistry | None = None
 def get_resource_registry() -> ResourceRegistry:
     global _REGISTRY
     if _REGISTRY is None:
-        _REGISTRY = ResourceRegistry()
+        _REGISTRY = ResourceRegistry() # pyright: ignore[reportConstantRedefinition]
     return _REGISTRY

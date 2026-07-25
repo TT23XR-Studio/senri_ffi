@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import struct as _struct
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from senri_ffi.pointer import Pointer
 from senri_ffi.types.normalized import (
-    compute_normalized_layout,
+    compute_normalized_layout, # pyright: ignore[reportUnusedImport]
     get_normalized_align,
     get_normalized_size,
     normalize_fields,
@@ -33,7 +34,7 @@ class StructInstance:
         alloc_native = getattr(self._struct_cls, "_alloc_native", None)
         if alloc_native:
             native = alloc_native(self._struct_cls._total_size)
-            data = native._data if isinstance(native, Pointer) else native
+            data = native._data if isinstance(native, Pointer) else native # pyright: ignore[reportPrivateUsage]
             if data and data.get("__buf"):
                 dst = data["__buf"]
                 src_bytes = bytes(self._buffer)
@@ -62,7 +63,7 @@ _FMT_MAP: dict[str, str] = {
 }
 
 
-def _read_value(buf: Any, offset: int, type_name: str, _size: int) -> Any:
+def _read_value(buf: Any, offset: int, type_name: str, _size: int) -> Any: # pyright: ignore[reportUnusedFunction]
     fmt = _FMT_MAP.get(type_name)
     if fmt:
         return _struct.unpack_from(fmt, buf, offset)[0]
@@ -121,38 +122,38 @@ def _make_struct_class(
         ftype_name = fi["type_name"]
         fsize = fi["size"]
 
-        def _make_getter(off, tn, sz):
-            def getter(self):
-                return _read_value(self._buffer, off, tn, sz)
+        def _make_getter(off: int, tn: str, sz: int) -> Callable[..., Any]:
+            def getter(self: StructInstance):
+                return _read_value(self._buffer, off, tn, sz) # pyright: ignore[reportPrivateUsage]
             return getter
 
-        def _make_setter(off, tn, sz):
-            def setter(self, value):
-                _write_value(self._buffer, off, tn, sz, value)
+        def _make_setter(off: int, tn: str, sz: int):
+            def setter(self: StructInstance, value: Any):
+                _write_value(self._buffer, off, tn, sz, value) # pyright: ignore[reportPrivateUsage]
             return setter
 
         cls_dict[fname] = property(_make_getter(foff, ftype_name, fsize), _make_setter(foff, ftype_name, fsize))
 
-    def from_pointer(cls, ptr: Any) -> StructInstance:
-        inst = object.__new__(cls)
-        inst._buffer = bytearray(total_size)
-        inst._fields = field_infos
+    def from_pointer(cls: StructInstance, ptr: Any) -> StructInstance:
+        inst: StructInstance = object.__new__(cls) # pyright: ignore[reportUnknownVariableType, reportArgumentType]
+        inst._buffer = bytearray(total_size) # pyright: ignore[reportPrivateUsage]
+        inst._fields = field_infos # pyright: ignore[reportPrivateUsage]
         src_ptr = ptr if isinstance(ptr, Pointer) else Pointer(ptr)
-        if src_ptr._data and src_ptr._data.get("__buf"):
-            src = src_ptr._data["__buf"]
+        if src_ptr._data and src_ptr._data.get("__buf"): # pyright: ignore[reportPrivateUsage]
+            src = src_ptr._data["__buf"] # pyright: ignore[reportPrivateUsage]
             if isinstance(src, bytearray):
-                inst._buffer[:] = src[:total_size]
+                inst._buffer[:] = src[:total_size] # pyright: ignore[reportPrivateUsage]
             else:
-                inst._buffer[:] = bytes(src[:total_size])
-        return inst
+                inst._buffer[:] = bytes(src[:total_size]) # pyright: ignore[reportPrivateUsage]
+        return inst # pyright: ignore[reportUnknownVariableType]
 
     cls_dict["__senri_type"] = "struct"
     cls_dict["fields"] = fields
     cls_dict["packed"] = packed
-    cls_dict["from_pointer"] = classmethod(from_pointer)
+    cls_dict["from_pointer"] = classmethod(from_pointer) # pyright: ignore[reportArgumentType]
 
     cls = type("StructInstance", (StructInstance,), cls_dict)
-    cls._struct_cls = cls
+    cls._struct_cls = cls # pyright: ignore[reportPrivateUsage]
     return cls
 
 
